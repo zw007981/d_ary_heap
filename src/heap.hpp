@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace pri_queue {
+namespace usr_defined_cont {
 // K叉堆（K-ary Heap）数据结构。
 template <typename T>
 class KHeap {
@@ -16,25 +16,25 @@ public:
 protected:
     // 每个父节点最多可以有多少个子节点（不得小于2）。
     int k_;
-    // 堆中存储的节点。
-    std::vector<T> nodes_;
-    // 堆中存储的节点的个数。
+    // 堆中存储节点的个数。
     int size_;
+    // 存储于堆中的节点。
+    std::vector<T> nodes_;
     // 用于比较两节点大小的函数。
     CmpFunc cmp_func_;
 
 public:
-    explicit KHeap(int _k, const std::vector<T>& _nodes, CmpFunc&& _cmp_func)
-        : k_(_k)
-        , nodes_(_nodes)
-        , cmp_func_(_cmp_func)
+    explicit KHeap(int k, const std::vector<T>& nodes, CmpFunc&& cmp_func)
+        : k_(k)
+        , nodes_(nodes)
+        , cmp_func_(std::move(cmp_func))
     {
         this->initHeap();
     }
-    explicit KHeap(int _k, std::vector<T>&& _nodes, CmpFunc&& _cmp_func)
-        : k_(_k)
-        , nodes_(_nodes)
-        , cmp_func_(_cmp_func)
+    explicit KHeap(int k, std::vector<T>&& nodes, CmpFunc&& cmp_func)
+        : k_(k)
+        , nodes_(std::move(nodes))
+        , cmp_func_(std::move(cmp_func))
     {
         this->initHeap();
     }
@@ -42,12 +42,12 @@ public:
     virtual ~KHeap() = default;
 
     // 返回堆中存储的元素的个数。
-    inline int size() const noexcept
+    int size() const noexcept
     {
         return size_;
     }
     // 判断堆是否为空。
-    inline bool empty() const noexcept
+    bool empty() const noexcept
     {
         return size_ == 0;
     }
@@ -65,12 +65,9 @@ public:
         if (size_ == 0) {
             throw std::out_of_range("The K-ary heap is empty!!!");
         }
-        // Replace root of the heap with the last element of the vector.
         nodes_.at(0) = nodes_.back();
-        // Remove the last element of the vector.
         nodes_.pop_back();
         size_ -= 1;
-        // Fix the root cause it violates the heap property.
         this->heapifyDown(0);
     }
     // 将一个元素插入堆中。
@@ -78,30 +75,28 @@ public:
     void push(Args&&... args)
     {
         auto id_to_fix = this->size();
-        // Insert new node at the end of the vector.
         nodes_.emplace_back(std::forward<Args>(args)...);
         size_ += 1;
-        // Fix the root cause it violates the heap property.
         this->heapifyUp(id_to_fix);
     }
 
 protected:
     // 判断编号为node_id的节点是否为叶子节点。
-    inline bool isLeaf(NodeID node_id) const noexcept
+    bool isLeaf(NodeID node_id) const noexcept
     {
         return node_id * k_ + 2 > this->size();
     }
     // 返回编号为parent_id的父节点的第child_order个子节点的序号。
-    inline NodeID getChildID(NodeID parent_id, size_t child_order) const noexcept
+    NodeID getChildID(NodeID parent_id, size_t child_order) const noexcept
     {
         return k_ * parent_id + child_order + 1;
     }
     // 返回编号为child_id的子节点的父节点的序号。
-    inline NodeID getParentID(NodeID child_id) const noexcept
+    NodeID getParentID(NodeID child_id) const noexcept
     {
         return (child_id - 1) / k_;
     }
-    // 堆的构建，时间复杂度O(n).
+    // 构建堆，时间复杂度O(n)。
     void buildHeap() noexcept
     {
         for (NodeID id_to_fix = this->size() / k_ + 1; id_to_fix > 0; --id_to_fix) {
@@ -113,13 +108,11 @@ protected:
     {
         std::swap(nodes_.at(i), nodes_.at(j));
     }
-    // Recover a heap with misplaced node at id_to_fix by bubbling the node down.
+    // 在id_to_fix位置添加一个节点后通过bubble down的方式修复堆，时间复杂度O(k)。
     void heapifyDown(NodeID id_to_fix) noexcept
     {
         const int length = this->size();
-        // comp_est is the biggest element in a max heap or the smallest in a min heap.
         NodeID comp_est = id_to_fix, cur_id = id_to_fix;
-        // Time complexity O(K).
         while (!this->isLeaf(cur_id)) {
             for (size_t child_order = 0; child_order < k_; ++child_order) {
                 auto child_id = this->getChildID(cur_id, child_order);
@@ -135,7 +128,7 @@ protected:
             cur_id = comp_est;
         }
     }
-    // Recover a heap with misplaced node at id_to_fix by bubbling the node up.
+    // 在id_to_fix位置添加一个节点后通过bubble up的方式修复堆，时间复杂度O(k)。
     void heapifyUp(NodeID id_to_fix) noexcept
     {
         while (id_to_fix > 0) {
@@ -147,7 +140,7 @@ protected:
             id_to_fix = parent_id;
         }
     }
-    // 堆的初始化，时间复杂度为O(n).
+    // 堆的初始化，时间复杂度O(n).
     void initHeap()
     {
         if (k_ < 2) {
@@ -158,28 +151,31 @@ protected:
     }
 };
 
-// 通过拷贝的方法构建一个MinKHeap。
+// 构建空的最小堆。
 template <typename T>
-auto makeMinKHeap(int k, const std::vector<T>& nodes)
+auto createEmptyMinKHeap(int k)
 {
-    return KHeap<T>(k, nodes, std::greater<> {});
+    return KHeap<T>(k, std::vector<T>(), std::greater<T>());
 }
-// 通过移动的方法构建一个MinKHeap。
+
+// 构建空的最大堆。
 template <typename T>
-auto makeMinKHeap(int k, const std::vector<T>&& nodes = {})
+auto createEmptyMaxKHeap(int k)
 {
-    return KHeap<T>(k, std::move(nodes), std::greater<> {});
+    return KHeap<T>(k, std::vector<T>(), std::less<T>());
 }
-// 通过拷贝的方法构建一个MaxKHeap。
-template <typename T>
-auto makeMaxKHeap(int k, const std::vector<T>& nodes)
+
+// 使用提供的节点nodes来构建最小堆。
+template <typename T, typename Nodes>
+auto buildMinKHeap(int k, Nodes&& nodes)
 {
-    return KHeap<T>(k, nodes, std::less<> {});
+    return KHeap<T>(k, std::forward<Nodes>(nodes), std::greater<T>());
 }
-// 通过移动的方法构建一个MaxKHeap。
-template <typename T>
-auto makeMaxKHeap(int k, const std::vector<T>&& nodes = {})
+
+// 使用提供的节点nodes来构建最大堆。
+template <typename T, typename Nodes>
+auto buildMaxKHeap(int k, Nodes&& nodes)
 {
-    return KHeap<T>(k, std::move(nodes), std::less<> {});
+    return KHeap<T>(k, std::forward<Nodes>(nodes), std::less<T>());
 }
 }

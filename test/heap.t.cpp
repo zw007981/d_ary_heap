@@ -8,7 +8,7 @@
 
 #include "../src/heap.hpp"
 
-namespace pri_queue {
+namespace usr_defined_cont {
 namespace test_heap {
     struct MyString {
         MyString(const std::string& _value)
@@ -45,8 +45,8 @@ namespace test_heap {
         std::vector<int> values_in_int_;
         const int expected_values_in_str_size_ { static_cast<int>(values_in_str_.size()) };
         const int expected_values_in_int_size_ { 44 };
-        KHeap<MyString> min_k_heap_ = makeMinKHeap<MyString>(10, values_in_str_);
-        KHeap<int> max_k_heap_ = makeMaxKHeap<int>(2);
+        KHeap<MyString> min_k_heap_ = buildMinKHeap<MyString>(10, values_in_str_);
+        KHeap<int> max_k_heap_ = createEmptyMaxKHeap<int>(2);
 
     public:
         void SetUp() override
@@ -117,7 +117,7 @@ namespace test_heap {
 
     TEST_F(TestHeapFixture, testMbrFuncSizeAndEmpty)
     {
-        auto empty_k_heap = makeMaxKHeap<int>(2);
+        auto empty_k_heap = createEmptyMaxKHeap<int>(2);
         EXPECT_EQ(empty_k_heap.size(), 0);
         EXPECT_TRUE(empty_k_heap.empty());
         EXPECT_EQ(min_k_heap_.size(), expected_values_in_str_size_);
