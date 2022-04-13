@@ -1,4 +1,4 @@
-#include <boost/container_hash/hash.hpp>
+#include <functional>
 #include <gtest/gtest.h>
 #include <iostream>
 #include <queue>
@@ -47,9 +47,7 @@ namespace test_priority_queue {
     struct MyNodeHasher {
         size_t operator()(const MyNode& my_node) const
         {
-            std::size_t seed = 0;
-            boost::hash_combine(seed, boost::hash_value(my_node.node_id_));
-            return seed;
+            return std::hash<int>()(my_node.node_id_);
         }
     };
     template <typename T>
