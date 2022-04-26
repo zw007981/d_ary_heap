@@ -99,11 +99,10 @@ TEST_F(TestHeapFixture, testMbrFuncTopAndPop)
     }
     for (size_t i = 0; i < expected_values_in_int_size_; i++) {
         auto top_node1 = values_in_int_.at(0);
-        auto top_node2 = max_d_heap_.top();
+        auto top_node2 = max_d_heap_.popAndReturn();
         EXPECT_EQ(top_node1, top_node2);
         std::pop_heap(values_in_int_.begin(), values_in_int_.end(), std::less<int> {});
         values_in_int_.pop_back();
-        max_d_heap_.pop();
     }
 }
 
