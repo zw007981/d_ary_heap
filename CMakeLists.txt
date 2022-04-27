@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(D_ary_heap)
+project(d_ary_heap)
 set(CMAKE_CXX_STANDARD 17)
 
 # 添加单元测试。
