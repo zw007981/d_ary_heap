@@ -6,91 +6,11 @@
 #include <string>
 
 #include "../src/priority_queue.hpp"
-#include "scoped_timer.h"
+#include "test_data_generator.h"
 
 namespace usr_defined_cont {
 namespace test_priority_queue {
     constexpr int RAND_SEED = 19950910;
-    constexpr double DOUBLE_EPS = 0.01;
-    struct MyNode {
-        explicit MyNode(int node_id, double g, double h)
-            : node_id_(node_id)
-            , g_(g)
-            , h_(h)
-        {
-            f_ = g_ + h_;
-        }
-        int node_id_;
-        double f_ { 0.0 };
-        double g_ { 0.0 };
-        double h_ { 0.0 };
-        bool operator>(const MyNode& another) const
-        {
-            return f_ > another.f_;
-        }
-        bool operator<(const MyNode& another) const
-        {
-            return f_ < another.f_;
-        }
-        bool operator==(const MyNode& another) const
-        {
-            return node_id_ == another.node_id_;
-        }
-        std::string getInfoInStr() const
-        {
-            std::ostringstream info;
-            info << "Node ID = " << node_id_ << ", f = " << f_
-                 << ", g = " << g_ << ", h = " << h_;
-            return info.str();
-        }
-    };
-    struct MyNodeHasher {
-        size_t operator()(const MyNode& my_node) const
-        {
-            return std::hash<int>()(my_node.node_id_);
-        }
-    };
-    template <typename T>
-    auto createSTDMinPriQueue = []() {
-        auto cmpFunc = [](const T& element1, const T& element2) {
-            return element1 > element2;
-        };
-        return std::priority_queue<T, std::vector<T>, decltype(cmpFunc)>(cmpFunc);
-    };
-    template <typename T>
-    auto createSTDMaxPriQueue = []() {
-        auto cmpFunc = [](const T& element1, const T& element2) {
-            return element1 < element2;
-        };
-        return std::priority_queue<T, std::vector<T>, decltype(cmpFunc)>(cmpFunc);
-    };
-    auto genNodeFunc = []() {
-        int node_id = std::rand() % 1000;
-        double g = 0.1 * (std::rand() % 10000), h = 0.1 * (std::rand() % 10000);
-        return MyNode(node_id, g, h);
-    };
-    auto genStrFunc = []() {
-        int length = std::rand() % 30;
-        std::string rand_str = "";
-        if (length <= 0) {
-            return rand_str;
-        }
-        char tmp;
-        for (int i = 0; i < length; i++) {
-            tmp = std::rand() % 62;
-            if (tmp < 10) {
-                tmp += '0';
-            } else if (tmp < 36) {
-                tmp -= 10;
-                tmp += 'A';
-            } else {
-                tmp -= 36;
-                tmp += 'a';
-            }
-            rand_str += tmp;
-        }
-        return rand_str;
-    };
 
     class TestPriQueueFixture : public ::testing::Test {
         using MinPriQueue = PriQueue<MyNode, double, MyNodeHasher>;
@@ -99,7 +19,6 @@ namespace test_priority_queue {
     public:
         void SetUp() override
         {
-
             // 生成测试数据。
             my_nodes_ = this->genDataForTest<MyNode, decltype(genNodeFunc)>(num_nodes_, genNodeFunc);
             my_strings_ = this->genDataForTest<std::string, decltype(genStrFunc)>(num_strings_, genStrFunc);
@@ -186,18 +105,18 @@ namespace test_priority_queue {
         auto [std_min_pri_queue, std_max_pri_queue] = this->buildSTDPriQueue();
         for (size_t i = 0; i < num_nodes_; i++) {
             const auto& expected_node = std_min_pri_queue.top();
-            const auto& [node1, key1] = min_pri_queue_.topNodeAndPri();
+            const auto& [node1, key1] = min_pri_queue_.topNode();
             EXPECT_TRUE(node1 == expected_node);
-            EXPECT_NEAR(key1, expected_node.f_, DOUBLE_EPS);
+            EXPECT_EQ(key1, expected_node.f_);
             auto [node2, key2] = min_pri_queue_.popAndReturn();
             EXPECT_TRUE(node2 == expected_node);
-            EXPECT_NEAR(key2, expected_node.f_, DOUBLE_EPS);
+            EXPECT_EQ(key2, expected_node.f_);
             std_min_pri_queue.pop();
         }
         EXPECT_THROW(min_pri_queue_.popAndReturn(), std::out_of_range);
         for (size_t i = 0; i < num_strings_; i++) {
             const auto& expected_str = std_max_pri_queue.top();
-            const auto& [str1, key1] = max_pri_queue_.topNodeAndPri();
+            const auto& [str1, key1] = max_pri_queue_.topNode();
             EXPECT_TRUE(str1 == expected_str);
             EXPECT_TRUE(key1 == expected_str);
             auto [str2, key2] = max_pri_queue_.popAndReturn();
@@ -224,7 +143,6 @@ namespace test_priority_queue {
 
     TEST_F(TestPriQueueFixture, testChangeSizeOfQueue)
     {
-        auto empty_max_pri_queue = createEmptyMaxPriQueue<std::string, std::string>(10);
         int num_new_nodes { 123 }, num_new_str { 233 };
         auto datasets_of_node = this->genDataForTest<MyNode, decltype(genNodeFunc)>(num_new_nodes,
             genNodeFunc, 1);
@@ -250,6 +168,7 @@ namespace test_priority_queue {
             EXPECT_EQ(min_pri_queue_.size(), expected_size_of_min_pri_queue);
         }
         EXPECT_TRUE(min_pri_queue_.empty());
+        auto empty_max_pri_queue = createEmptyMaxPriQueue<std::string, std::string>(10);
         auto expected_size_of_max_pri_queue = 0;
         EXPECT_TRUE(empty_max_pri_queue.empty());
         for (const auto& new_str : datasets_of_str) {
@@ -270,15 +189,15 @@ namespace test_priority_queue {
     TEST_F(TestPriQueueFixture, testGetPri)
     {
         for (const auto& node : my_nodes_) {
-            EXPECT_NEAR(node.f_, min_pri_queue_.getPriOfNode(node), 0.01);
+            EXPECT_EQ(node.f_, min_pri_queue_.getPriority(node));
         }
         auto new_node = MyNode(88888888, 0.1, 0.2);
-        EXPECT_THROW(min_pri_queue_.getPriOfNode(new_node), std::out_of_range);
+        EXPECT_THROW(min_pri_queue_.getPriority(new_node), std::out_of_range);
         for (const auto& str : my_strings_) {
-            EXPECT_TRUE(str == max_pri_queue_.getPriOfNode(str));
+            EXPECT_TRUE(str == max_pri_queue_.getPriority(str));
         }
         auto new_str = std::string("!233");
-        EXPECT_THROW(max_pri_queue_.getPriOfNode(new_str), std::out_of_range);
+        EXPECT_THROW(max_pri_queue_.getPriority(new_str), std::out_of_range);
     }
 
     TEST_F(TestPriQueueFixture, testUpdatePri)
@@ -286,115 +205,59 @@ namespace test_priority_queue {
         for (size_t i = 0; i < num_nodes_; i++) {
             if (std::rand() % 10 <= 4) {
                 auto prev_node = MyNode(my_nodes_[i]);
-                my_nodes_[i].f_ -= 0.1 * (std::rand() % 10000);
-                min_pri_queue_.updatePri(prev_node, my_nodes_[i].f_);
+                my_nodes_[i].f_ -= std::rand() % 100 + 1;
+                min_pri_queue_.updatePriority(prev_node, my_nodes_[i].f_);
             }
         }
         for (size_t i = 0; i < num_strings_; i++) {
             if (std::rand() % 10 <= 4) {
                 auto prev_str = std::string(my_strings_[i]);
                 my_strings_[i] += "233";
-                max_pri_queue_.updatePri(prev_str, my_strings_[i]);
+                max_pri_queue_.updatePriority(prev_str, my_strings_[i]);
             }
         }
         auto [std_min_pri_queue, std_max_pri_queue] = this->buildSTDPriQueue();
         for (size_t i = 0; i < num_nodes_; i++) {
             const auto& expected_node = std_min_pri_queue.top();
-            const auto& [node, key] = min_pri_queue_.topNodeAndPri();
+            const auto& [node, pri] = min_pri_queue_.topNode();
             EXPECT_TRUE(expected_node == node);
-            EXPECT_NEAR(expected_node.f_, key, DOUBLE_EPS);
-            EXPECT_GT(node.g_ + node.h_, node.f_ - DOUBLE_EPS);
+            EXPECT_EQ(expected_node.f_, pri);
+            EXPECT_GE(node.g_ + node.h_, node.f_);
             std_min_pri_queue.pop();
             min_pri_queue_.pop();
         }
-        EXPECT_THROW(min_pri_queue_.popAndReturn(), std::out_of_range);
+        EXPECT_THROW(min_pri_queue_.top(), std::out_of_range);
         for (size_t i = 0; i < num_strings_; i++) {
             const auto& expected_str = std_max_pri_queue.top();
-            auto [str, key] = max_pri_queue_.popAndReturn();
-            EXPECT_TRUE(expected_str == key);
-            EXPECT_TRUE(str <= key);
+            auto [str, pri] = max_pri_queue_.topNode();
+            EXPECT_TRUE(expected_str == pri);
+            EXPECT_TRUE(str <= pri);
             std_max_pri_queue.pop();
+            max_pri_queue_.pop();
         }
-        EXPECT_THROW(max_pri_queue_.popAndReturn(), std::out_of_range);
+        EXPECT_THROW(max_pri_queue_.topNode(), std::out_of_range);
     }
 
     TEST_F(TestPriQueueFixture, testUpdatePriForNodeNotExist)
     {
-        auto new_node = MyNode(88888888, 0.1, 0.2);
-        EXPECT_THROW(min_pri_queue_.updatePri(new_node, new_node.f_), std::out_of_range);
+        auto new_node = MyNode(88888888, 1, 2);
+        EXPECT_THROW(min_pri_queue_.updatePriority(new_node, new_node.f_), std::out_of_range);
         min_pri_queue_.push(new_node, new_node.f_);
-        EXPECT_NO_THROW(min_pri_queue_.updatePri(new_node, new_node.f_ - 2.33));
+        EXPECT_NO_THROW(min_pri_queue_.updatePriority(new_node, new_node.f_ - 1));
         auto new_str = std::string("!233");
-        EXPECT_THROW(max_pri_queue_.updatePri(new_str, new_str), std::out_of_range);
+        EXPECT_THROW(max_pri_queue_.updatePriority(new_str, new_str), std::out_of_range);
         max_pri_queue_.push(new_str, new_str);
-        EXPECT_NO_THROW(max_pri_queue_.updatePri(new_str, new_str + "233"));
+        EXPECT_NO_THROW(max_pri_queue_.updatePriority(new_str, new_str + "233"));
     }
 
     TEST_F(TestPriQueueFixture, testUpdatePriArbitrarily)
     {
         auto existing_node = *my_nodes_.begin();
-        EXPECT_THROW(min_pri_queue_.updatePri(existing_node, existing_node.f_ + 10.0), std::logic_error);
-        EXPECT_NO_THROW(min_pri_queue_.updatePri(existing_node, existing_node.f_ - 10.0));
+        EXPECT_THROW(min_pri_queue_.updatePriority(existing_node, existing_node.f_ + 10), std::logic_error);
+        EXPECT_NO_THROW(min_pri_queue_.updatePriority(existing_node, existing_node.f_ - 10));
         auto existing_str = *my_strings_.begin();
-        EXPECT_THROW(max_pri_queue_.updatePri(existing_str, ""), std::logic_error);
-        EXPECT_NO_THROW(max_pri_queue_.updatePri(existing_str, existing_str + "233"));
-    }
-
-    TEST_F(TestPriQueueFixture, testCompareWithSTDPriQueue)
-    {
-        int64_t runtime_min_pri_queue, runtime_std_min_pri_queue,
-            runtime_max_pri_queue, runtime_std_max_pri_queue;
-        auto min_pri_queue = createEmptyMinPriQueue<MyNode, double, MyNodeHasher>(3);
-        {
-            auto timer = usr_defined_timer::ScopedTimer("MinPriQueuePushAndPop");
-            for (const auto& node : my_nodes_) {
-                min_pri_queue.push(node, node.f_);
-            }
-            for (size_t i = 0; i < num_nodes_; i++) {
-                if (std::rand() % 10 < 3) {
-                    min_pri_queue.pop();
-                }
-            }
-            runtime_min_pri_queue = timer.countInNS();
-        }
-        auto std_min_pri_queue = createSTDMinPriQueue<MyNode>();
-        {
-            auto timer = usr_defined_timer::ScopedTimer("STDMinPriQueuePushAndPop");
-            for (const auto& node : my_nodes_) {
-                std_min_pri_queue.push(node);
-            }
-            for (size_t i = 0; i < num_strings_; i++) {
-                if (std::rand() % 10 < 3) {
-                    std_min_pri_queue.pop();
-                }
-            }
-            runtime_std_min_pri_queue = timer.countInNS();
-        }
-        auto max_pri_queue = createEmptyMaxPriQueue<std::string, std::string>(2);
-        {
-            auto timer = usr_defined_timer::ScopedTimer("MaxPriQueuePushAndPop");
-            for (const auto& str : my_strings_) {
-                max_pri_queue.push(str, str);
-            }
-            for (size_t i = 0; i < num_strings_; i++) {
-                max_pri_queue.pop();
-            }
-            runtime_max_pri_queue = timer.countInNS();
-        }
-        auto std_max_pri_queue = createSTDMaxPriQueue<std::string>();
-        {
-            auto timer = usr_defined_timer::ScopedTimer("STDMaxPriQueuePushAndPop");
-            for (const auto& str : my_strings_) {
-                std_max_pri_queue.push(str);
-            }
-            for (size_t i = 0; i < num_strings_; i++) {
-                std_max_pri_queue.pop();
-            }
-            runtime_std_max_pri_queue = timer.countInNS();
-        }
-        std::cout << "For min priority queue, usr_defined/std = " << runtime_min_pri_queue / static_cast<double>(runtime_std_min_pri_queue)
-                  << ", for max priority queue, usr_defined/std = " << runtime_max_pri_queue / static_cast<double>(runtime_std_max_pri_queue)
-                  << ".\n";
+        EXPECT_THROW(max_pri_queue_.updatePriority(existing_str, ""), std::logic_error);
+        EXPECT_NO_THROW(max_pri_queue_.updatePriority(existing_str, existing_str + "233"));
     }
 }
 }
