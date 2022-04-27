@@ -19,7 +19,7 @@ protected:
     // 用于比较两节点的函数。
     CmpFunc cmp_func_;
     // 堆中节点的个数。
-    int size_;
+    size_t size_;
     // 存储于堆中的节点。
     std::deque<T> nodes_;
 
