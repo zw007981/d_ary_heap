@@ -67,9 +67,9 @@ public:
         if (perform_chk && this->contains(element)) {
             throw std::logic_error("Element is in the queue!!!");
         }
-        size_ += 1;
+        element_to_pos_[element] = size_;
         nodes_.emplace_back(std::forward<TFwd>(element), std::forward<TPriFwd>(pri));
-        element_to_pos_[nodes_.back().first] = size_ - 1;
+        size_ += 1;
         this->heapifyUp(size_ - 1);
     }
     // 将元素element对应的优先级更新为pri，时间复杂度：O(d*log_d(N))。
