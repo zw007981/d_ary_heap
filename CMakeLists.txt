@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 project(priority-queue)
 set(CMAKE_CXX_STANDARD 17)
 
-# 运行单元测试。
+# 添加单元测试。
 find_package(GTest)
 if(GTest_FOUND)
     enable_testing()
@@ -16,3 +16,22 @@ if(GTest_FOUND)
 else(GTest_FOUND)
     message(WARNING "Unable to find GTest!")
 endif(GTest_FOUND)
+
+# 添加benchmark用例。
+find_package(benchmark)
+if(benchmark_FOUND)
+  set(BENCHMARK_ENABLE_TESTING OFF)
+  file(GLOB_RECURSE ALL_BENCH_SRC "bench/*.cpp")
+  include_directories(${benchmark_LIBRARIES})
+  foreach(BENCH_SRC ${ALL_BENCH_SRC})
+    get_filename_component(BENCH_EXEC ${BENCH_SRC} NAME_WE)
+    set(TARGET_NAME bench_${BENCH_EXEC})
+    add_executable(${TARGET_NAME} EXCLUDE_FROM_ALL
+                   ${BENCH_SRC} ${PP_SERVER_SRC} ${COLL_DETECT_SRC})
+    set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME ${BENCH_EXEC})
+    target_link_libraries(${TARGET_NAME} benchmark::benchmark)
+  endforeach()
+  message(STATUS "Google benchmark found, benchmarking can be implemented.")
+else(benchmark_FOUND)
+  message(WARNING "Unable to find Google benchmark!")
+endif(benchmark_FOUND)
