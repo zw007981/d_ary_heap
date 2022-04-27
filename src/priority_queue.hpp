@@ -1,5 +1,6 @@
 #pragma once
 
+#include <deque>
 #include <stdexcept>
 #include <unordered_map>
 #include <vector>
@@ -10,297 +11,271 @@ enum class PriQueueTyp {
     MAX_PRI_QUEUE
 };
 
-// 基于k叉堆的优先队列。T: 节点种类, TPri: 用于排序的节点优先级, THash: 用于求解节点哈希值的函数。
+// 基于D叉堆的优先队列。T: 队列中的元素, TPri: 用于排序的元素优先级, THash: 用于求解元素哈希值的函数。
 template <typename T, typename TPri, typename THash = std::hash<T>>
 class PriQueue {
 protected:
-    using NodeID = int;
+    // 节点，包含有元素的基本信息和优先级。
+    using Node = std::pair<T, TPri>;
+    // 节点在堆中的位置。
+    using NodePos = size_t;
+    // 用于比较两节点大小的函数。
     using CmpFunc = std::function<bool(TPri, TPri)>;
 
     // 每个父节点最多可以有多少个子节点（不得小于2）。
-    int k_;
+    int d_;
     // 优先队列的种类。
-    PriQueueTyp type_;
-    // 用于比较两节点大小的函数。
+    PriQueueTyp typ_;
+    // 用于比较两节点的函数。
     CmpFunc cmp_func_;
-    // 堆中存储节点的个数。
-    int size_;
+    // 优先队列中节点的个数。
+    size_t size_;
     // 存储于堆中的节点。
-    std::vector<T> nodes_;
-    // 从节点到它优先级的映射。
-    std::unordered_map<T, TPri, THash> node_to_pri_;
-    // 从节点到它在堆中位置的映射。
-    std::unordered_map<T, NodeID, THash> node_to_id_;
+    std::deque<Node> nodes_;
+    // 从元素到它们在堆中位置的映射。
+    std::unordered_map<T, NodePos, THash> element_to_pos_;
 
 public:
-    // 通过传引用的方式构造优先队列。
-    explicit PriQueue(int k, PriQueueTyp type, CmpFunc&& cmp_func,
-        const std::vector<T>& nodes, const std::vector<TPri>& priorities)
-        : k_(k)
-        , type_(type)
+    // 使用队列中的元素elements和它们的优先级priorities来构造优先队列。
+    explicit PriQueue(int d, PriQueueTyp typ, CmpFunc&& cmp_func,
+        const std::vector<T>& elements, const std::vector<TPri>& priorities)
+        : d_(d)
+        , typ_(typ)
         , cmp_func_(std::move(cmp_func))
-        , nodes_(nodes)
-        , node_to_pri_(this->buildNodeToPriMap(this->nodes_, priorities))
-        , node_to_id_(this->buildNodeToIDMap(this->nodes_))
-    {
-        this->buildHeap();
-    }
-    // 通过传右值的方式构造优先队列。
-    explicit PriQueue(int k, PriQueueTyp type, CmpFunc&& cmp_func,
-        std::vector<T>&& nodes, std::vector<TPri>&& priorities)
-        : k_(k)
-        , type_(type)
-        , cmp_func_(std::move(cmp_func))
-        , nodes_(std::move(nodes))
-        , node_to_pri_(this->buildNodeToPriMap(this->nodes_, std::move(priorities)))
-        , node_to_id_(this->buildNodeToIDMap(this->nodes_))
+        , size_(elements.size())
+        , element_to_pos_(this->buildElementToPos(elements))
+        , nodes_(this->assembleHeap(elements, priorities))
     {
         this->buildHeap();
     }
     PriQueue() = default;
     virtual ~PriQueue() = default;
 
-    // 返回队列中存储节点的个数。
-    int size() const noexcept
-    {
-        return size_;
-    }
+    // 返回队列中存储的节点的数量。
+    size_t size() const noexcept { return size_; }
     // 判断队列是否为空。
-    bool empty() const noexcept
+    bool empty() const noexcept { return size_ == 0; }
+    // 判断一个元素element是否在队列中。
+    bool contains(const T& element) const noexcept
     {
-        return size_ == 0;
+        return element_to_pos_.find(element) != element_to_pos_.end();
     }
-    // 判断一个节点是否存在于队列中。
-    bool contains(const T& node) const noexcept
+    // 将一个元素element和它的优先级pri插入队列中，默认会执行重复性检测，时间复杂度：O(d*log_d(N))。
+    template <bool perform_chk = true, typename TFwd, typename TPriFwd>
+    void push(TFwd&& element, TPriFwd&& pri)
     {
-        return node_to_id_.find(node) != node_to_id_.end();
-    }
-    // 将一个节点和它的优先级插入队列中并返回成功与否，默认会在插入前执行重复性检测，时间复杂度：O(k*log_k(N))。
-    void push(const T& node, const TPri& pri, bool perform_chk = true)
-    {
-        if (perform_chk && this->contains(node)) {
-            throw std::logic_error("Node is already in the queue!!!");
+        if (perform_chk && this->contains(element)) {
+            throw std::logic_error("Element is in the queue!!!");
         }
-        auto id = this->size();
-        node_to_id_[node] = id;
-        node_to_pri_[node] = pri;
-        nodes_.emplace_back(node);
         size_ += 1;
-        this->heapifyUp(id);
+        nodes_.emplace_back(std::forward<TFwd>(element), std::forward<TPriFwd>(pri));
+        element_to_pos_[nodes_.back().first] = size_ - 1;
+        this->heapifyUp(size_ - 1);
     }
-    // 更新节点对应的优先级，时间复杂度：O(k*log_k(N))。
-    void updatePri(const T& node, const TPri& pri)
+    // 将元素element对应的优先级更新为pri，时间复杂度：O(d*log_d(N))。
+    template <typename TPriFwd>
+    void updatePriority(const T& element, TPriFwd&& pri)
     {
-        const auto it = node_to_id_.find(node);
-        if (it == node_to_id_.end()) {
-            throw std::out_of_range("No such node is present!!!");
-        } else if (type_ == PriQueueTyp::MIN_PRI_QUEUE) {
-            if (node_to_pri_.at(node) <= pri) {
-                throw std::logic_error("Only decrease key operation can be performed!!!");
+        auto pos_it = element_to_pos_.find(element);
+        if (pos_it == element_to_pos_.end()) {
+            throw std::out_of_range("No such element is present!!!");
+        } else if (typ_ == PriQueueTyp::MIN_PRI_QUEUE) {
+            if (nodes_.at(pos_it->second).second <= pri) {
+                throw std::logic_error("Only decreas key operation can be performed in min priority queue!!!");
             } else {
-                node_to_pri_.at(node) = pri;
-                const NodeID id_to_fix = node_to_id_.at(node);
-                this->heapifyUp(id_to_fix);
+                nodes_[pos_it->second].second = std::forward<TPriFwd>(pri);
+                this->heapifyUp(pos_it->second);
             }
         } else {
-            if (node_to_pri_.at(node) >= pri) {
-                throw std::logic_error("Only increase key operation can be performed!!!");
+            if (nodes_.at(pos_it->second).second >= pri) {
+                throw std::logic_error("Only increase key operation can be performed in max priority queue!!!");
             } else {
-                node_to_pri_.at(node) = pri;
-                const NodeID id_to_fix = node_to_id_.at(node);
-                this->heapifyDown(id_to_fix);
+                nodes_[pos_it->second].second = std::forward<TPriFwd>(pri);
+                this->heapifyDown(pos_it->second);
             }
         }
     }
-    // 返回节点对应的优先级。
-    const TPri& getPriOfNode(const T& node) const
+    // 返回元素element对应的优先级，默认会执行重复性检测。
+    template <bool perform_chk = true>
+    const TPri& getPriority(const T& element) const
     {
-        const auto it = node_to_pri_.find(node);
-        if (it == node_to_pri_.end()) {
+        auto pos_it = element_to_pos_.find(element);
+        if (perform_chk && pos_it == element_to_pos_.end()) {
             throw std::out_of_range("Unable to find the given node!!!");
         }
-        return it->second;
+        return nodes_.at(pos_it->second).second;
     }
-    // 返回队列中的第一个节点。
+    // 返回队列中的第一个元素。
     const T& top() const
     {
         if (size_ == 0) {
             throw std::out_of_range("The priority queue is empty!!!");
         }
-        return nodes_.at(0);
+        return nodes_.front().first;
     }
-    // 返回队列中的第一个节点和它的优先级。
-    std::pair<const T&, const TPri&> topNodeAndPri() const
+    // 返回队列中的第一个元素和它的优先级。
+    const Node& topNode() const
     {
-        const auto& node = this->top();
-        const auto& pri = this->getPriOfNode(node);
-        return { node, pri };
+        if (size_ == 0) {
+            throw std::out_of_range("The priority queue is empty!!!");
+        }
+        return nodes_.front();
     }
-    // 移除队列中的第一个节点。
+    // 移除队列中的第一个元素。
     void pop()
     {
         if (size_ == 0) {
             throw std::out_of_range("The priority queue is empty!!!");
         }
-        const auto node_to_pop = nodes_.at(0);
-        node_to_id_.erase(node_to_pop);
-        node_to_pri_.erase(node_to_pop);
+        const auto& node_to_pop = nodes_.at(0);
+        element_to_pos_.erase(node_to_pop.first);
         nodes_.at(0) = nodes_.back();
         nodes_.pop_back();
         size_ -= 1;
         if (size_ > 0) {
-            const auto node_front = nodes_.front();
-            node_to_id_.at(node_front) = 0;
+            element_to_pos_[nodes_.front().first] = 0;
             this->heapifyDown(0);
         }
     }
-    // 移除队列中的第一个节点并返回它和它的优先级。
-    std::pair<T, TPri> popAndReturn()
+    // 移除队列中的第一个元素并返回它和它的优先级。
+    Node popAndReturn()
     {
         if (size_ == 0) {
             throw std::out_of_range("The priority queue is empty!!!");
         }
-        T node_to_return = std::move(nodes_.at(0));
-        TPri pri_to_return = std::move(node_to_pri_.at(node_to_return));
-        node_to_id_.erase(node_to_return);
-        node_to_pri_.erase(node_to_return);
+        Node node_to_return = std::move(nodes_.at(0));
+        element_to_pos_.erase(node_to_return.first);
         nodes_.at(0) = nodes_.back();
         nodes_.pop_back();
         size_ -= 1;
         if (size_ > 0) {
-            const auto node_front = nodes_.front();
-            node_to_id_.at(node_front) = 0;
+            element_to_pos_[nodes_.front().first] = 0;
             this->heapifyDown(0);
         }
-        return std::make_pair(node_to_return, pri_to_return);
+        return node_to_return;
     }
 
 protected:
-    // 构建从节点到它优先级的映射。
-    static auto buildNodeToPriMap(const std::vector<T>& nodes, const std::vector<TPri>& priorities)
+    // 构建从输入的元素到它在堆中位置的映射。
+    static auto buildElementToPos(const std::vector<T>& elements)
     {
-        if (nodes.size() != priorities.size()) {
-            throw std::invalid_argument("Number of nodes must be equal to the number of priorities!!!");
+        decltype(element_to_pos_) element_to_pos;
+        NodePos node_pos = 0;
+        for (const auto& element : elements) {
+            element_to_pos[element] = node_pos;
+            node_pos++;
         }
-        decltype(node_to_pri_) node_to_pri;
-        for (size_t i = 0; i < nodes.size(); i++) {
-            node_to_pri[nodes.at(i)] = priorities.at(i);
+        return element_to_pos;
+    }
+    // 根据输入的元素和优先级生成未经排序的堆。
+    static auto assembleHeap(const std::vector<T>& elements, const std::vector<TPri>& priorities)
+    {
+        if (elements.size() != priorities.size()) {
+            throw std::invalid_argument("Number of elements must be equal to number of priorities!!!");
         }
-        return node_to_pri;
-    }
-    // 构建从节点到它在堆中位置的映射。
-    static auto buildNodeToIDMap(const std::vector<T>& nodes)
-    {
-        decltype(node_to_id_) node_to_id;
-        NodeID index = 0;
-        for (const auto& node : nodes) {
-            node_to_id[node] = index;
-            index++;
+        decltype(nodes_) nodes;
+        for (size_t i = 0; i < elements.size(); i++) {
+            nodes.emplace_back(elements.at(i), priorities.at(i));
         }
-        return node_to_id;
+        return nodes;
     }
-    // 判断编号为node_id的节点是否为叶子节点。
-    bool isLeaf(NodeID node_id) const noexcept
-    {
-        return node_id * k_ + 2 > this->size();
-    }
-    // 返回编号为parent_id的父节点的第child_order个子节点的编号。
-    NodeID getChildID(NodeID parent_id, size_t child_order) const noexcept
-    {
-        return k_ * parent_id + child_order + 1;
-    }
-    // 返回编号为child_id的子节点的父节点的编号。
-    NodeID getParentID(NodeID child_id) const noexcept
-    {
-        return (child_id - 1) / k_;
-    }
-    // 比较编号为i和j两个节点所对应优先级的大小。
-    bool cmpTwoNodes(NodeID i, NodeID j) const
-    {
-        return cmp_func_(node_to_pri_.at(nodes_.at(i)),
-            node_to_pri_.at(nodes_.at(j)));
-    }
-    // 构建堆，时间复杂度O(n).
+    // 构建堆，时间复杂度O(n)。
     void buildHeap()
     {
-        if (k_ < 2) {
-            throw std::invalid_argument("K must be at least 2!!!");
+        if (d_ < 2) {
+            throw std::invalid_argument("D must be lareger or equal to 2!!!");
         }
-        size_ = nodes_.size();
-        for (NodeID id_to_fix = this->size() / k_ + 1; id_to_fix > 0; --id_to_fix) {
-            this->heapifyDown(id_to_fix - 1);
+        for (NodePos pos_to_fix = size_ / d_ + 1; pos_to_fix > 0; --pos_to_fix) {
+            this->heapifyDown(pos_to_fix - 1);
         }
     }
-    // 交换第i和第j个节点的位置。
-    void swapNodes(NodeID i, NodeID j) noexcept
+    // 判断堆中第node_pos个节点是否为叶节点。
+    bool isLeafNode(NodePos node_pos) const noexcept
     {
-        auto node_i = this->nodes_.at(i), node_j = this->nodes_.at(j);
-        std::swap(node_to_id_.at(node_i), node_to_id_.at(node_j));
-        std::swap(nodes_.at(i), nodes_.at(j));
+        return d_ * node_pos + 2 > size_;
     }
-    // 在id_to_fix位置添加一个节点后通过bubble down的方式修复堆，时间复杂度O(k)。
-    void heapifyDown(NodeID id_to_fix) noexcept
+    // 返回堆中第parent_node_pos个节点的第child_ord个子节点的位置。
+    NodePos getChildNodePos(NodePos parent_node_pos, size_t child_ord) const noexcept
     {
-        const int length = this->size();
-        NodeID comp_est = id_to_fix, cur_id = id_to_fix;
-        while (!this->isLeaf(cur_id)) {
-            for (size_t child_order = 0; child_order < k_; ++child_order) {
-                auto child_id = this->getChildID(cur_id, child_order);
-                if (child_id < length
-                    && this->cmpTwoNodes(comp_est, child_id)) {
-                    comp_est = child_id;
+        return d_ * parent_node_pos + child_ord + 1;
+    }
+    // 返回堆中第child_pos个节点所属的父节点的位置。
+    NodePos getParentNodePos(NodePos child_pos) const noexcept
+    {
+        return (child_pos - 1) / d_;
+    }
+    // 比较位置为i和j的两个节点的优先级的大小。
+    bool cmpNodes(NodePos pos_i, NodePos pos_j) const noexcept
+    {
+        return cmp_func_(nodes_.at(pos_i).second, nodes_.at(pos_j).second);
+    }
+    // 交换第i个和第j个节点的位置。
+    void swapNodes(NodePos pos_i, NodePos pos_j) noexcept
+    {
+        std::swap(element_to_pos_[nodes_.at(pos_i).first], element_to_pos_[nodes_.at(pos_j).first]);
+        std::swap(nodes_[pos_i], nodes_[pos_j]);
+    }
+    // 在pos_to_fix位置添加一个节点后通过bubble down的方式修复堆，时间复杂度O(d)。
+    void heapifyDown(NodePos pos_to_fix) noexcept
+    {
+        NodePos pos_to_cmp = pos_to_fix, cur_pos = pos_to_fix;
+        while (!this->isLeafNode(cur_pos)) {
+            for (size_t child_order = 0; child_order < d_; ++child_order) {
+                NodePos child_node_pos = this->getChildNodePos(cur_pos, child_order);
+                if (child_node_pos < size_ && this->cmpNodes(pos_to_cmp, child_node_pos)) {
+                    pos_to_cmp = child_node_pos;
                 }
             }
-            if (cur_id == comp_est) {
+            if (cur_pos == pos_to_cmp) {
                 return;
             }
-            this->swapNodes(cur_id, comp_est);
-            cur_id = comp_est;
+            this->swapNodes(cur_pos, pos_to_cmp);
+            cur_pos = pos_to_cmp;
         }
     }
-    // 在id_to_fix位置添加一个节点后通过bubble up的方式修复堆，时间复杂度O(k)。
-    void heapifyUp(NodeID id_to_fix) noexcept
+    // 在pos_to_fix位置添加一个节点后通过bubble up的方式修复堆，时间复杂度O(d)。
+    void heapifyUp(NodePos pos_to_fix) noexcept
     {
-        while (id_to_fix > 0) {
-            auto parent_id = this->getParentID(id_to_fix);
-            if (!this->cmpTwoNodes(parent_id, id_to_fix)) {
+        while (pos_to_fix > 0) {
+            NodePos parent_node_pos = this->getParentNodePos(pos_to_fix);
+            if (!this->cmpNodes(parent_node_pos, pos_to_fix)) {
                 return;
             }
-            this->swapNodes(id_to_fix, parent_id);
-            id_to_fix = parent_id;
+            this->swapNodes(pos_to_fix, parent_node_pos);
+            pos_to_fix = parent_node_pos;
         }
     }
 };
 
 // 构建空的最小优先队列。
 template <typename T, typename TPri, typename THash = std::hash<T>>
-auto createEmptyMinPriQueue(int k)
+auto createEmptyMinPriQueue(int d)
 {
-    return PriQueue<T, TPri, THash>(k, PriQueueTyp::MIN_PRI_QUEUE, std::greater<> {},
+    return PriQueue<T, TPri, THash>(d, PriQueueTyp::MIN_PRI_QUEUE, std::greater<> {},
         std::vector<T>(), std::vector<TPri>());
 }
 
 // 构建空的最大优先队列。
 template <typename T, typename TPri, typename THash = std::hash<T>>
-auto createEmptyMaxPriQueue(int k)
+auto createEmptyMaxPriQueue(int d)
 {
-    return PriQueue<T, TPri, THash>(k, PriQueueTyp::MAX_PRI_QUEUE, std::less<> {},
+    return PriQueue<T, TPri, THash>(d, PriQueueTyp::MAX_PRI_QUEUE, std::less<> {},
         std::vector<T>(), std::vector<TPri>());
 }
 
-// 使用节点nodes和它们的优先级priorities构建最小优先队列。
-template <typename T, typename TPri, typename THash = std::hash<T>, typename Nodes, typename Priorities>
-auto buildMinPriQueue(int k, Nodes&& nodes, Priorities&& priorities)
+// 使用队列中的元素elements和它们的优先级priorities来构造优先队列。
+template <typename T, typename TPri, typename THash = std::hash<T>, typename Elements, typename Priorities>
+auto buildMinPriQueue(int d, Elements&& elements, Priorities&& priorities)
 {
-    return PriQueue<T, TPri, THash>(k, PriQueueTyp::MIN_PRI_QUEUE, std::greater<> {},
-        std::forward<Nodes>(nodes), std::forward<Priorities>(priorities));
+    return PriQueue<T, TPri, THash>(d, PriQueueTyp::MIN_PRI_QUEUE, std::greater<> {},
+        std::forward<Elements>(elements), std::forward<Priorities>(priorities));
 }
 
-// 使用节点nodes和它们的优先级priorities构建最大优先队列。
-template <typename T, typename TPri, typename THash = std::hash<T>, typename Nodes, typename Priorities>
-auto buildMaxPriQueue(int k, Nodes&& nodes, Priorities&& priorities)
+// 使用队列中的元素elements和它们的优先级priorities来构造优先队列。
+template <typename T, typename TPri, typename THash = std::hash<T>, typename Elements, typename Priorities>
+auto buildMaxPriQueue(int d, Elements&& elements, Priorities&& priorities)
 {
-    return PriQueue<T, TPri, THash>(k, PriQueueTyp::MAX_PRI_QUEUE, std::less<> {},
-        std::forward<Nodes>(nodes), std::forward<Priorities>(priorities));
+    return PriQueue<T, TPri, THash>(d, PriQueueTyp::MAX_PRI_QUEUE, std::less<> {},
+        std::forward<Elements>(elements), std::forward<Priorities>(priorities));
 }
 }
