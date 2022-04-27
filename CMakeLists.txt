@@ -8,9 +8,9 @@ if(GTest_FOUND)
     enable_testing()
     include(GoogleTest)
     file(GLOB TEST_SRC CONFIGURE_DEPENDS "test/*.t.cpp")
-    add_executable(test_priority_queue ${TEST_SRC})
-    target_link_libraries(test_priority_queue gmock gtest pthread)
-    gtest_discover_tests(test_priority_queue XML_OUTPUT_DIR
+    add_executable(test_d_ary_heap ${TEST_SRC})
+    target_link_libraries(test_d_ary_heap gmock gtest pthread)
+    gtest_discover_tests(test_d_ary_heap XML_OUTPUT_DIR
                         ${CMAKE_CURRENT_BINARY_DIR}/Testing)
     message(STATUS "GTest found, test cases can be executed.")
 else(GTest_FOUND)

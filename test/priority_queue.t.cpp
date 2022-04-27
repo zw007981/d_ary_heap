@@ -13,7 +13,7 @@ namespace test_priority_queue {
     constexpr int RAND_SEED = 19950910;
 
     class TestPriQueueFixture : public ::testing::Test {
-        using MinPriQueue = PriQueue<MyNode, double, MyNodeHasher>;
+        using MinPriQueue = PriQueue<MyNode, int, MyNodeHasher>;
         using MaxPriQueue = PriQueue<std::string, std::string>;
 
     public:
@@ -46,7 +46,7 @@ namespace test_priority_queue {
         // 使用随机生成的数据构建自定义的优先队列。
         void buildPriQueue()
         {
-            min_pri_queue_ = createEmptyMinPriQueue<MyNode, double, MyNodeHasher>(3);
+            min_pri_queue_ = createEmptyMinPriQueue<MyNode, int, MyNodeHasher>(3);
             max_pri_queue_ = createEmptyMaxPriQueue<std::string, std::string>(2);
             for (const auto& node : my_nodes_) {
                 min_pri_queue_.push(node, node.f_);
@@ -129,7 +129,7 @@ namespace test_priority_queue {
 
     TEST_F(TestPriQueueFixture, testContains)
     {
-        auto empty_min_pri_queue = createEmptyMinPriQueue<MyNode, double, MyNodeHasher>(2);
+        auto empty_min_pri_queue = createEmptyMinPriQueue<MyNode, int, MyNodeHasher>(2);
         auto empty_max_pri_queue = createEmptyMaxPriQueue<std::string, std::string>(3);
         for (const auto& node : my_nodes_) {
             EXPECT_TRUE(min_pri_queue_.contains(node));
