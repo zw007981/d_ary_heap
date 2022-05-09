@@ -8,7 +8,7 @@
 #include "../src/priority_queue.hpp"
 #include "test_data_generator.h"
 
-namespace usr_defined_cont {
+namespace custom_cont {
 namespace test_priority_queue {
     constexpr int RAND_SEED = 19950910;
 

@@ -3,7 +3,7 @@
 #include <random>
 #include <string>
 
-namespace usr_defined_cont {
+namespace custom_cont {
 struct MyNode {
     explicit MyNode(int node_id, int g, int h)
         : node_id_(node_id)

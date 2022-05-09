@@ -4,7 +4,7 @@
 #include <functional>
 #include <stdexcept>
 
-namespace usr_defined_cont {
+namespace custom_cont {
 // D叉堆(D-ary heap)数据结构。
 template <typename T>
 class DAryHeap {

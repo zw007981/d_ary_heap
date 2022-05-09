@@ -8,7 +8,7 @@
 #include "../src/d_ary_heap.hpp"
 #include "test_data_generator.h"
 
-namespace usr_defined_cont::test_d_ary_heap {
+namespace custom_cont::test_d_ary_heap {
 class TestHeapFixture : public ::testing::Test {
     using MinHeap = DAryHeap<std::string>;
     using MaxHeap = DAryHeap<int>;

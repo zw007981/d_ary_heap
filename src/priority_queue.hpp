@@ -5,7 +5,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace usr_defined_cont {
+namespace custom_cont {
 enum class PriQueueTyp {
     MIN_PRI_QUEUE,
     MAX_PRI_QUEUE

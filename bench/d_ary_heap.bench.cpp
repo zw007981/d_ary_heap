@@ -6,7 +6,7 @@
 #include "../src/priority_queue.hpp"
 #include "../test/test_data_generator.h"
 
-using namespace usr_defined_cont;
+using namespace custom_cont;
 
 // 用于测试的容器的种类。
 enum class ContType { UsrDefinedHeap,
