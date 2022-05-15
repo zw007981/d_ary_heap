@@ -152,14 +152,14 @@ protected:
 
 // 构建空的最小堆。
 template <typename T>
-auto createEmptyMinDHeap(int d)
+auto createEmptyMinDHeap(int d = 2)
 {
     return DAryHeap<T>(d, std::greater<T>(), std::deque<T>());
 }
 
 // 构建空的最大堆。
 template <typename T>
-auto createEmptyMaxDHeap(int d)
+auto createEmptyMaxDHeap(int d = 2)
 {
     return DAryHeap<T>(d, std::less<T>(), std::deque<T>());
 }

@@ -249,7 +249,7 @@ protected:
 
 // 构建空的最小优先队列。
 template <typename T, typename TPri, typename THash = std::hash<T>>
-auto createEmptyMinPriQueue(int d)
+auto createEmptyMinPriQueue(int d = 2)
 {
     return PriQueue<T, TPri, THash>(d, PriQueueTyp::MIN_PRI_QUEUE, std::greater<> {},
         std::vector<T>(), std::vector<TPri>());
@@ -257,7 +257,7 @@ auto createEmptyMinPriQueue(int d)
 
 // 构建空的最大优先队列。
 template <typename T, typename TPri, typename THash = std::hash<T>>
-auto createEmptyMaxPriQueue(int d)
+auto createEmptyMaxPriQueue(int d = 2)
 {
     return PriQueue<T, TPri, THash>(d, PriQueueTyp::MAX_PRI_QUEUE, std::less<> {},
         std::vector<T>(), std::vector<TPri>());
