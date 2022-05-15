@@ -1,103 +1,58 @@
-<center> <font size=8> Priority Queue </font></center>
+<center> <font size=8> D-ary Heap </font></center>
 
-# Heap
+使用C++实现的 `D-ary heap` 和基于此开发的 `updatable priority queue` ，参考了[updatable priority queue](https://github.com/Ten0/updatable_priority_queue)。
 
-The `heap` namespace contains the abstract class heap and the concrete implementation `KHeap` (K-ary heaps), in which the nodes have at most `K` children.
+# 使用
 
-`KHeap` are either Min Heaps or Max Heaps depending on comparator used to initialize the heap, much like what happens in the STL. To get a Min Heap the given comparator should be `std::less<>{}` , whereas to get a Max Heap, the given comparator should be `std::greater<>{}` .
+直接引用对应的头文件即可使用。
 
-A number of utility factory functions are provided to easily create the type of Heap you want, namely:
-
-1. `make_min_k_heap<size_t K, typename T>`: create a Min K-ary Heap starting from a vector of keys and a vector of values.
-2. `make_max_k_heap<size_t K, typename T>`: create a Max K-ary Heap starting from a vector of keys and a vector of values.
-
-Each of these functions supports both copy and move semantics for the given input. The example usage of `KHeap` can be found below:
+### D-ary heap
 
 ```c++
-#include <iostream>
-#include <vector>
+#include "src/d_ary_heap.hpp"
 
-#include "src/KHeap.h"
-
-int main() {
-
-    std::vector<char> vec1 {'b', 'c', 'f', 'a', 'e', 'd'};
-    constexpr size_t K1 = 4;
-    auto min_heap = heap::make_min_k_heap<K1>(std::move(vec1));
-    // Output: a, b, c, d, e, f.
-    while (!min_heap.empty()) {
-        std::cout << min_heap.top() << std::endl;
-        min_heap.pop();
-    }
-
-    auto max_heap = heap::make_max_k_heap<3, size_t>();
-    max_heap.push(30);
-    max_heap.push(15);
-    max_heap.push(5000);
-    max_heap.push(50);
-    max_heap.push(599);
-    // Output: 5000, 599, 50, 30, 15.
-    while (!max_heap.empty()) {
-        std::cout << max_heap.top() << std::endl;
-        max_heap.pop();
-    }
-    return 0;
-
-}
-
+// 构建空的存储int型数据的最大堆，其中每个父节点最多可以有3个子节点。
+auto max_heap = createEmptyMaxDHeap<int>(3);
+max_heap.push(0);
+max_heap.push(1);
+// size == 2。
+size_t size = max_heap.size();
+// top_element == 1。
+auto top_element = max_heap.top();
+max_heap.pop();
+max_heap.pop();
+// is_empty == true。
+bool is_empty = max_heap.empty();
 ```
 
-# Priority Queue
-
-The `priority-queue` namespace contains the concrete class `PriorityQueue` . The main methods exposed by `PriorityQueue` are:
-
-1. `size()`: return the number of elements in the heap with time complexity O(1).
-2. `empty()`: return true iff the heap is empty with time complexity O(1).
-3. `push(const Key& key, const T& element)`: add a new element to the heap and associates the given key to it, time complexity O(k*log_k(N)).
-4. `update_key(const Key& key, const T& element)`: update the key of an existing element in the priority queue, time complexity O(k*log_k(N)).
-5. `contains(const T& element)`: return true iff the given element is in the priority queue with time complexity O(1).
-6. `top()`: return the top element with time complexity O(1).
-7. `pop()`: remove the top element with time complexity O(k*log_k(N)).
-
-**Node**: in order to keep `update_key` 's complexity logarithmic instead of linear, there's quite important caveat: arbitrary key updates are not allowed. More specifically if a Priority Queue based on a Max-Heap is used, only increase key operation can be performed; if a Priority Queue based on a Min-Heap is used, only decrease key operation can be performed. Otherwise arbitrary key updates may result in undefined behavior.
-
-A number of utility factory functions are provided to easily create the type of Priority Queue you want, namely:
-
-1. `make_min_priority_queue<size_t K, typename Key, typename Value, typename THash = std::hash<Value>`: create a Priority Queue based on a Min K-ary Heap starting from a vector of values.
-2. `make_max_priority_queue<size_t K, typename Key, typename Value, typename THash = std::hash<Value>`: create a Priority Queue based on a Max K-ary Heap starting from a vector of values.
-
-Each of these functions supports both copy and move semantics for the given inputs.
-
-**Note**: `PriorityQueue` is implemented using `unordered_map` for fast retrieval of keys and element index given an element sorted in the underlying `Heap` . This means that your values's type must have an hash implementation. If you use trivial types (int, double, etc) you're already covered otherwise you will have to provide your own custom hash functor as the last template argument of the utility factory functions defined above.
+### Updatable priority queue
 
 ```c++
-#include <iostream>
-#include <vector>
-#include "src/PriorityQueue.h"
+#include "src/priority_queue.hpp"
 
-int main() {
-    auto keys1 = std::vector<size_t> {5, 4, 1, 3, 6, 0, 2};
-    auto values1 = std::vector<char> {'m', 'i', 'n', 'h', 'e', 'a', 'p'};
-    constexpr size_t K1 = 4;
-    auto min_pri_queue1 = priority_queue::make_min_k_priority_queue<K1>(keys1, values1);
-    //Output: {0,a}, {1,n}, {2,p}, {3,h}, {4,i}, {5,m}, {6,e}.
-    while (!min_pri_queue1.empty()) {
-        const auto& [top_key, top_value] = min_pri_queue1.top();
-        std::cout << "{" << top_key << "," << top_value << "}" << std::endl;
-    }
-
-    auto keys2 = std::vector<size_t> {0, 2, 4, 6, 8, 10, 12};
-    auto values2 = std::vector<char> {'m', 'i', 'n', 'h', 'e', 'a', 'p'};
-    constexpr size_t K2 = 3;
-    auto min_pri_queue2 = priority_queue::make_min_k_priority_queue<K2>(keys1, values1);
-    // Min heap: keys can only decrease.
-    min_pri_queue2.update_key(5, 'e');
-    min_pri_queue2.update_key(1, 'p');
-    //Output: {0,m}, {1,p}, {2,i}, {4,n}, {5,e}, {6,h}, {10,a}.
-    while (!min_pri_queue2.empty()) {
-        const auto& [top_key, top_value] = min_pri_queue2.top();
-        std::cout << "{" << top_key << "," << top_value << "}" << std::endl;
-    }
-    return 0;
-}
+// 构建空的存储string型数据的最小优先队列，这些数据的优先级用double表示，
+// 队列中每个父节点最多可以有2个子节点。
+auto min_pri_queue = createEmptyMinPriQueue<std::string, double>();
+// 将元素和它的优先级插入队列中。
+min_pri_queue.push("A-star", 3.0);
+min_pri_queue.push("Dijkstra", 2.0);
+min_pri_queue.push("Bellman-Ford", 1.0);
+// top_element == "Bellman-Ford"。
+auto top_element = min_pri_queue.top();
+// contains_RRT == false。
+bool contains_RRT = min_pri_queue.contains("RRT");
+// pri_Dijkstra == 2.0。
+auto& pri_Dijkstra = min_pri_queue.getPriority("Dijkstra");
+// pri_Dijkstra == 1.5。
+min_pri_queue.updatePriority("Dijkstra", 1.5);
 ```
+
+# 单元测试
+
+存储于 `test` 文件夹中的测试用例里有更多关于这两个数据结构的使用示例，在执行这些测试用例之前需要先安装[GoogleTest](https://github.com/google/googletest)，再编译并执行 `test_d_ary_heap` 即可。
+
+# benchmark
+
+benchmark用例存储于 `bench` 文件夹中，在用例中比较了自定义数据结构和 `std::priority_queue` 执行 `push` 和 `pop` 两种操作所需的时间，测试结果如下：
+
+如果想运行这些benchmark用例需要先安装[Benchmark](https://github.com/google/benchmark)，再编译并执行 `bench_d_ary_heap` 。
