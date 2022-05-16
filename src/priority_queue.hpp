@@ -73,8 +73,7 @@ public:
         this->heapifyUp(size_ - 1);
     }
     // 将元素element对应的优先级更新为pri，时间复杂度：O(d*log_d(N))。
-    template <typename TPriFwd>
-    void updatePriority(const T& element, TPriFwd&& pri)
+    void updatePriority(const T& element, TPri pri)
     {
         auto pos_it = element_to_pos_.find(element);
         if (pos_it == element_to_pos_.end()) {
@@ -83,14 +82,14 @@ public:
             if (nodes_.at(pos_it->second).second <= pri) {
                 throw std::logic_error("Only decreas key operation can be performed in min priority queue!!!");
             } else {
-                nodes_[pos_it->second].second = std::forward<TPriFwd>(pri);
+                nodes_[pos_it->second].second = std::move(pri);
                 this->heapifyUp(pos_it->second);
             }
         } else {
             if (nodes_.at(pos_it->second).second >= pri) {
                 throw std::logic_error("Only increase key operation can be performed in max priority queue!!!");
             } else {
-                nodes_[pos_it->second].second = std::forward<TPriFwd>(pri);
+                nodes_[pos_it->second].second = std::move(pri);
                 this->heapifyDown(pos_it->second);
             }
         }
