@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <benchmark/benchmark.h>
+#include <tuple>
 #include <vector>
 
 #include "../src/d_ary_heap.hpp"
@@ -9,99 +10,208 @@
 using namespace custom_cont;
 
 // 用于测试的容器的种类。
-enum class ContType { UsrDefinedHeap,
-    UsrDefinedPriQueue,
+enum class ContType { CustomHeap,
+    CustomPriQueue,
     STDPriQueue };
 
-// 生成测试数据。
-template <typename T, typename TGenFunc>
-std::vector<T> genDataForTest(size_t num_data, TGenFunc genFunc, int seed = 19950910)
-{
-    srand(seed);
-    std::vector<T> data_for_test;
-    for (size_t i = 0; i < num_data; i++) {
-        auto rand_data = genFunc();
-        if (std::find(data_for_test.begin(), data_for_test.end(), rand_data)
-            != data_for_test.end()) {
-            continue;
+// 适用于bench d ary heap的fixture，包含测试数据集和一些工具函数。
+class BenchDAryHeapFixture {
+public:
+    // 输入需要的数据集的大小dataset size来初始化fixture。
+    explicit BenchDAryHeapFixture(size_t dataset_size)
+    {
+        strings_ = BenchDAryHeapFixture::genDatasetForTest<std::string, decltype(genStrFunc)>(dataset_size, genStrFunc);
+        nodes_ = BenchDAryHeapFixture::genDatasetForTest<MyNode, decltype(genNodeFunc)>(dataset_size, genNodeFunc);
+        std::for_each(nodes_.begin(), nodes_.end(), [&](const MyNode& node) { nodes_priorities_.push_back(node.f_); });
+    }
+    // 返回包含std::string的测试数据集。
+    const auto& getStringsForTest() const { return strings_; }
+    // 返回包含MyNode的测试数据集。
+    const auto& getNodesForTest() const { return nodes_; }
+    // 返回包含MyNode优先级的测试数据集。
+    const auto& getPrioritiesForTest() const { return nodes_priorities_; }
+    // 构造空的std::priority_queue用于测试。
+    static auto createSTDPriQueue()
+    {
+        return std::make_tuple(createSTDMinPriQueue<std::string>(), createSTDMaxPriQueue<std::string>(),
+            createSTDMinPriQueue<MyNode>(), createSTDMaxPriQueue<MyNode>());
+    }
+    // 构造空的D ary heap用于测试。
+    static auto createHeap()
+    {
+        return std::make_tuple(createEmptyMinDHeap<std::string>(), createEmptyMaxDHeap<std::string>(),
+            createEmptyMinDHeap<MyNode>(), createEmptyMaxDHeap<MyNode>());
+    }
+    // 构造空的updatable priority queue用于测试。
+    static auto createPriorityQueue()
+    {
+        return std::make_tuple(createEmptyMinPriQueue<std::string, std::string>(),
+            createEmptyMaxPriQueue<std::string, std::string>(),
+            createEmptyMinPriQueue<MyNode, int, MyNodeHasher>(),
+            createEmptyMaxPriQueue<MyNode, int, MyNodeHasher>());
+    }
+    // 对容器进行count次pop操作。
+    template <typename TCont>
+    static void containerPop(TCont& container, size_t count)
+    {
+        for (size_t i = 0; i < count; i++) {
+            container.pop();
         }
-        data_for_test.push_back(std::move(rand_data));
     }
-    num_data = data_for_test.size();
-    return data_for_test;
-}
+    // 对容器进行count次push操作。
+    template <typename TCont, typename TElements>
+    static void containerPush(TCont& container, const TElements& elements, size_t count)
+    {
+        for (size_t i = 0; i < count; i++) {
+            container.push(elements.at(i));
+        }
+    }
+    // 对updatable priority queue进行count次push操作。
+    template <typename TCont, typename TElements, typename TPriorities>
+    static void containerPush(TCont& container, const TElements& elements, const TPriorities& priorities, size_t count)
+    {
+        for (size_t i = 0; i < count; i++) {
+            container.push(elements.at(i), priorities.at(i));
+        }
+    }
 
-// 在容器中进行push和pop操作。
-template <typename TCont, typename TElements, typename TPriorities>
-void containerPushAndPop(TCont& cont, const TElements& elements, const TPriorities& priorities)
-{
-    for (size_t i = 0; i < elements.size(); i++) {
-        cont.push(elements.at(i), priorities.at(i));
+private:
+    // 使用生成函数genFunc生成包含num data个类型为T的数据的数据集。
+    template <typename T, typename TGenFunc>
+    static std::vector<T> genDatasetForTest(size_t num_data, TGenFunc genFunc, int seed = 1995)
+    {
+        srand(seed);
+        std::vector<T> dataset;
+        for (size_t i = 0; i < num_data; i++) {
+            auto rand_data = genFunc();
+            while (std::find(dataset.begin(), dataset.end(), rand_data) != dataset.end()) {
+                rand_data = genFunc();
+            }
+            dataset.push_back(std::move(rand_data));
+        }
+        return dataset;
     }
-    for (size_t i = 0; i < elements.size() / 3; i++) {
-        cont.pop();
-    }
-}
-template <typename TCont, typename TElements>
-void containerPushAndPop(TCont& cont, const TElements& elements)
-{
-    for (size_t i = 0; i < elements.size(); i++) {
-        cont.push(elements.at(i));
-    }
-    for (size_t i = 0; i < elements.size() / 3; i++) {
-        cont.pop();
-    }
-}
 
-template <size_t size, ContType cont_type>
-void benchContainerPushAndPop(benchmark::State& state)
+private:
+    std::vector<std::string> strings_;
+    std::vector<MyNode> nodes_;
+    std::vector<decltype(MyNode::f_)> nodes_priorities_;
+};
+
+auto fixture = BenchDAryHeapFixture(10000);
+
+// 对种类为cont type的容器执行count次push操作。
+template <ContType cont_type, size_t count>
+void benchContainerPush(benchmark::State& state)
 {
-    auto nodes = genDataForTest<MyNode, decltype(genNodeFunc)>(size, genNodeFunc);
-    auto strings = genDataForTest<std::string, decltype(genStrFunc)>(size, genStrFunc);
-    auto nodes_priorities = std::vector<decltype(MyNode::f_)>();
-    std::for_each(nodes.begin(), nodes.end(), [&](const MyNode& node) { nodes_priorities.push_back(node.f_); });
+    const auto& strings = fixture.getStringsForTest();
+    const auto& nodes = fixture.getNodesForTest();
+    const auto& priorities = fixture.getPrioritiesForTest();
     for (auto _ : state) {
-        if (cont_type == ContType::UsrDefinedHeap) {
-            auto min_heap_node = createEmptyMinDHeap<MyNode>(3);
-            auto min_heap_str = createEmptyMinDHeap<std::string>(3);
-            auto max_heap_node = createEmptyMaxDHeap<MyNode>(3);
-            auto max_heap_str = createEmptyMaxDHeap<std::string>(3);
-            containerPushAndPop(min_heap_node, nodes);
-            containerPushAndPop(min_heap_str, strings);
-            containerPushAndPop(max_heap_node, nodes);
-            containerPushAndPop(max_heap_str, strings);
-        } else if (cont_type == ContType::UsrDefinedPriQueue) {
-            auto min_pri_queue_node = createEmptyMinPriQueue<MyNode, int, MyNodeHasher>(3);
-            auto min_pri_queue_str = createEmptyMinPriQueue<std::string, std::string>(3);
-            auto max_pri_queue_node = createEmptyMaxPriQueue<MyNode, int, MyNodeHasher>(3);
-            auto max_pri_queue_str = createEmptyMaxPriQueue<std::string, std::string>(3);
-            containerPushAndPop(min_pri_queue_node, nodes, nodes_priorities);
-            containerPushAndPop(min_pri_queue_str, strings, strings);
-            containerPushAndPop(max_pri_queue_node, nodes, nodes_priorities);
-            containerPushAndPop(max_pri_queue_str, strings, strings);
+        if (cont_type == ContType::CustomHeap) {
+            auto [min_heap_str, max_heap_str, min_heap_node, max_heap_node] = fixture.createHeap();
+            BenchDAryHeapFixture::containerPush(min_heap_str, strings, count);
+            BenchDAryHeapFixture::containerPush(max_heap_str, strings, count);
+            BenchDAryHeapFixture::containerPush(min_heap_node, nodes, count);
+            BenchDAryHeapFixture::containerPush(max_heap_node, nodes, count);
+        } else if (cont_type == ContType::CustomPriQueue) {
+            auto [min_pri_queue_str, max_pri_queue_str, min_pri_queue_node, max_pri_queue_node] = fixture.createPriorityQueue();
+            BenchDAryHeapFixture::containerPush(min_pri_queue_str, strings, strings, count);
+            BenchDAryHeapFixture::containerPush(max_pri_queue_str, strings, strings, count);
+            BenchDAryHeapFixture::containerPush(min_pri_queue_node, nodes, priorities, count);
+            BenchDAryHeapFixture::containerPush(max_pri_queue_node, nodes, priorities, count);
         } else {
-            auto std_min_pri_queue_node = createSTDMinPriQueue<MyNode>();
-            auto std_min_pri_queue_str = createSTDMinPriQueue<std::string>();
-            auto std_max_pri_queue_node = createSTDMaxPriQueue<MyNode>();
-            auto std_max_pri_queue_str = createSTDMaxPriQueue<std::string>();
-            containerPushAndPop(std_min_pri_queue_node, nodes);
-            containerPushAndPop(std_min_pri_queue_str, strings);
-            containerPushAndPop(std_max_pri_queue_node, nodes);
-            containerPushAndPop(std_max_pri_queue_str, strings);
+            auto [min_std_pri_queue_str, max_std_pri_queue_str, min_std_pri_queue_node, max_std_pri_queue_node] = fixture.createSTDPriQueue();
+            BenchDAryHeapFixture::containerPush(min_std_pri_queue_str, strings, count);
+            BenchDAryHeapFixture::containerPush(max_std_pri_queue_str, strings, count);
+            BenchDAryHeapFixture::containerPush(min_std_pri_queue_node, nodes, count);
+            BenchDAryHeapFixture::containerPush(max_std_pri_queue_node, nodes, count);
         }
     }
 }
 
-BENCHMARK_TEMPLATE(benchContainerPushAndPop, 66, ContType::UsrDefinedHeap);
-BENCHMARK_TEMPLATE(benchContainerPushAndPop, 66, ContType::UsrDefinedPriQueue);
-BENCHMARK_TEMPLATE(benchContainerPushAndPop, 66, ContType::STDPriQueue);
+// 对种类为cont type的容器执行count次push和pop操作。
+template <ContType cont_type, size_t count>
+void benchContainerPushPop(benchmark::State& state)
+{
+    const auto& strings = fixture.getStringsForTest();
+    const auto& nodes = fixture.getNodesForTest();
+    const auto& priorities = fixture.getPrioritiesForTest();
+    for (auto _ : state) {
+        if (cont_type == ContType::CustomHeap) {
+            auto [min_heap_str, max_heap_str, min_heap_node, max_heap_node] = fixture.createHeap();
+            BenchDAryHeapFixture::containerPush(min_heap_str, strings, count);
+            BenchDAryHeapFixture::containerPush(max_heap_str, strings, count);
+            BenchDAryHeapFixture::containerPush(min_heap_node, nodes, count);
+            BenchDAryHeapFixture::containerPush(max_heap_node, nodes, count);
+            BenchDAryHeapFixture::containerPop(min_heap_str, count);
+            BenchDAryHeapFixture::containerPop(max_heap_str, count);
+            BenchDAryHeapFixture::containerPop(min_heap_node, count);
+            BenchDAryHeapFixture::containerPop(max_heap_node, count);
 
-BENCHMARK_TEMPLATE(benchContainerPushAndPop, 666, ContType::UsrDefinedHeap);
-BENCHMARK_TEMPLATE(benchContainerPushAndPop, 666, ContType::UsrDefinedPriQueue);
-BENCHMARK_TEMPLATE(benchContainerPushAndPop, 666, ContType::STDPriQueue);
+        } else if (cont_type == ContType::CustomPriQueue) {
+            auto [min_pri_queue_str, max_pri_queue_str, min_pri_queue_node, max_pri_queue_node] = fixture.createPriorityQueue();
+            BenchDAryHeapFixture::containerPush(min_pri_queue_str, strings, strings, count);
+            BenchDAryHeapFixture::containerPush(max_pri_queue_str, strings, strings, count);
+            BenchDAryHeapFixture::containerPush(min_pri_queue_node, nodes, priorities, count);
+            BenchDAryHeapFixture::containerPush(max_pri_queue_node, nodes, priorities, count);
+            BenchDAryHeapFixture::containerPop(min_pri_queue_str, count);
+            BenchDAryHeapFixture::containerPop(max_pri_queue_str, count);
+            BenchDAryHeapFixture::containerPop(min_pri_queue_node, count);
+            BenchDAryHeapFixture::containerPop(max_pri_queue_node, count);
+        } else {
+            auto [min_std_pri_queue_str, max_std_pri_queue_str, min_std_pri_queue_node, max_std_pri_queue_node] = fixture.createSTDPriQueue();
+            BenchDAryHeapFixture::containerPush(min_std_pri_queue_str, strings, count);
+            BenchDAryHeapFixture::containerPush(max_std_pri_queue_str, strings, count);
+            BenchDAryHeapFixture::containerPush(min_std_pri_queue_node, nodes, count);
+            BenchDAryHeapFixture::containerPush(max_std_pri_queue_node, nodes, count);
+            BenchDAryHeapFixture::containerPop(min_std_pri_queue_str, count);
+            BenchDAryHeapFixture::containerPop(max_std_pri_queue_str, count);
+            BenchDAryHeapFixture::containerPop(min_std_pri_queue_node, count);
+            BenchDAryHeapFixture::containerPop(max_std_pri_queue_node, count);
+        }
+    }
+}
 
-BENCHMARK_TEMPLATE(benchContainerPushAndPop, 6666, ContType::UsrDefinedHeap);
-BENCHMARK_TEMPLATE(benchContainerPushAndPop, 6666, ContType::UsrDefinedPriQueue);
-BENCHMARK_TEMPLATE(benchContainerPushAndPop, 6666, ContType::STDPriQueue);
-
-BENCHMARK_MAIN();
+int main(int argc, char** argv)
+{
+    benchmark::SetDefaultTimeUnit(benchmark::TimeUnit::kMillisecond);
+    // ----------------------------------------------------------------------------
+    // std::priority_queue
+    BENCHMARK_TEMPLATE(benchContainerPush, ContType::STDPriQueue, 1000);
+    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::STDPriQueue, 1000);
+    BENCHMARK_TEMPLATE(benchContainerPush, ContType::STDPriQueue, 3000);
+    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::STDPriQueue, 3000);
+    BENCHMARK_TEMPLATE(benchContainerPush, ContType::STDPriQueue, 5000);
+    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::STDPriQueue, 5000);
+    BENCHMARK_TEMPLATE(benchContainerPush, ContType::STDPriQueue, 7000);
+    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::STDPriQueue, 7000);
+    // ----------------------------------------------------------------------------
+    // d_ary_heap
+    BENCHMARK_TEMPLATE(benchContainerPush, ContType::CustomHeap, 1000);
+    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::CustomHeap, 1000);
+    BENCHMARK_TEMPLATE(benchContainerPush, ContType::CustomHeap, 3000);
+    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::CustomHeap, 3000);
+    BENCHMARK_TEMPLATE(benchContainerPush, ContType::CustomHeap, 5000);
+    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::CustomHeap, 5000);
+    BENCHMARK_TEMPLATE(benchContainerPush, ContType::CustomHeap, 7000);
+    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::CustomHeap, 7000);
+    // ----------------------------------------------------------------------------
+    // priority_queue
+    BENCHMARK_TEMPLATE(benchContainerPush, ContType::CustomPriQueue, 1000);
+    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::CustomPriQueue, 1000);
+    BENCHMARK_TEMPLATE(benchContainerPush, ContType::CustomPriQueue, 3000);
+    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::CustomPriQueue, 3000);
+    BENCHMARK_TEMPLATE(benchContainerPush, ContType::CustomPriQueue, 5000);
+    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::CustomPriQueue, 5000);
+    BENCHMARK_TEMPLATE(benchContainerPush, ContType::CustomPriQueue, 7000);
+    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::CustomPriQueue, 7000);
+    // ----------------------------------------------------------------------------
+    benchmark::Initialize(&argc, argv);
+    if (benchmark::ReportUnrecognizedArguments(argc, argv)) {
+        return 1;
+    }
+    benchmark::RunSpecifiedBenchmarks();
+    benchmark::Shutdown();
+    return 0;
+}
