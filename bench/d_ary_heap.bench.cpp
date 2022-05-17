@@ -10,7 +10,7 @@
 using namespace custom_cont;
 
 // 用于测试的容器的种类。
-enum class ContType { CustomHeap,
+enum class Container { CustomHeap,
     CustomPriQueue,
     STDPriQueue };
 
@@ -101,20 +101,20 @@ private:
 auto fixture = BenchDAryHeapFixture(10000);
 
 // 对种类为cont type的容器执行count次push操作。
-template <ContType cont_type, size_t count>
-void benchContainerPush(benchmark::State& state)
+template <Container cont_type, size_t count>
+void benchPush(benchmark::State& state)
 {
     const auto& strings = fixture.getStringsForTest();
     const auto& nodes = fixture.getNodesForTest();
     const auto& priorities = fixture.getPrioritiesForTest();
     for (auto _ : state) {
-        if (cont_type == ContType::CustomHeap) {
+        if (cont_type == Container::CustomHeap) {
             auto [min_heap_str, max_heap_str, min_heap_node, max_heap_node] = fixture.createHeap();
             BenchDAryHeapFixture::containerPush(min_heap_str, strings, count);
             BenchDAryHeapFixture::containerPush(max_heap_str, strings, count);
             BenchDAryHeapFixture::containerPush(min_heap_node, nodes, count);
             BenchDAryHeapFixture::containerPush(max_heap_node, nodes, count);
-        } else if (cont_type == ContType::CustomPriQueue) {
+        } else if (cont_type == Container::CustomPriQueue) {
             auto [min_pri_queue_str, max_pri_queue_str, min_pri_queue_node, max_pri_queue_node] = fixture.createPriorityQueue();
             BenchDAryHeapFixture::containerPush(min_pri_queue_str, strings, strings, count);
             BenchDAryHeapFixture::containerPush(max_pri_queue_str, strings, strings, count);
@@ -131,14 +131,14 @@ void benchContainerPush(benchmark::State& state)
 }
 
 // 对种类为cont type的容器执行count次push和pop操作。
-template <ContType cont_type, size_t count>
-void benchContainerPushPop(benchmark::State& state)
+template <Container cont_type, size_t count>
+void benchPushThenPop(benchmark::State& state)
 {
     const auto& strings = fixture.getStringsForTest();
     const auto& nodes = fixture.getNodesForTest();
     const auto& priorities = fixture.getPrioritiesForTest();
     for (auto _ : state) {
-        if (cont_type == ContType::CustomHeap) {
+        if (cont_type == Container::CustomHeap) {
             auto [min_heap_str, max_heap_str, min_heap_node, max_heap_node] = fixture.createHeap();
             BenchDAryHeapFixture::containerPush(min_heap_str, strings, count);
             BenchDAryHeapFixture::containerPush(max_heap_str, strings, count);
@@ -149,7 +149,7 @@ void benchContainerPushPop(benchmark::State& state)
             BenchDAryHeapFixture::containerPop(min_heap_node, count);
             BenchDAryHeapFixture::containerPop(max_heap_node, count);
 
-        } else if (cont_type == ContType::CustomPriQueue) {
+        } else if (cont_type == Container::CustomPriQueue) {
             auto [min_pri_queue_str, max_pri_queue_str, min_pri_queue_node, max_pri_queue_node] = fixture.createPriorityQueue();
             BenchDAryHeapFixture::containerPush(min_pri_queue_str, strings, strings, count);
             BenchDAryHeapFixture::containerPush(max_pri_queue_str, strings, strings, count);
@@ -178,34 +178,34 @@ int main(int argc, char** argv)
     benchmark::SetDefaultTimeUnit(benchmark::TimeUnit::kMillisecond);
     // ----------------------------------------------------------------------------
     // std::priority_queue
-    BENCHMARK_TEMPLATE(benchContainerPush, ContType::STDPriQueue, 1000);
-    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::STDPriQueue, 1000);
-    BENCHMARK_TEMPLATE(benchContainerPush, ContType::STDPriQueue, 3000);
-    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::STDPriQueue, 3000);
-    BENCHMARK_TEMPLATE(benchContainerPush, ContType::STDPriQueue, 5000);
-    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::STDPriQueue, 5000);
-    BENCHMARK_TEMPLATE(benchContainerPush, ContType::STDPriQueue, 7000);
-    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::STDPriQueue, 7000);
+    BENCHMARK_TEMPLATE(benchPush, Container::STDPriQueue, 1000);
+    BENCHMARK_TEMPLATE(benchPushThenPop, Container::STDPriQueue, 1000);
+    BENCHMARK_TEMPLATE(benchPush, Container::STDPriQueue, 3000);
+    BENCHMARK_TEMPLATE(benchPushThenPop, Container::STDPriQueue, 3000);
+    BENCHMARK_TEMPLATE(benchPush, Container::STDPriQueue, 5000);
+    BENCHMARK_TEMPLATE(benchPushThenPop, Container::STDPriQueue, 5000);
+    BENCHMARK_TEMPLATE(benchPush, Container::STDPriQueue, 7000);
+    BENCHMARK_TEMPLATE(benchPushThenPop, Container::STDPriQueue, 7000);
     // ----------------------------------------------------------------------------
     // d_ary_heap
-    BENCHMARK_TEMPLATE(benchContainerPush, ContType::CustomHeap, 1000);
-    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::CustomHeap, 1000);
-    BENCHMARK_TEMPLATE(benchContainerPush, ContType::CustomHeap, 3000);
-    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::CustomHeap, 3000);
-    BENCHMARK_TEMPLATE(benchContainerPush, ContType::CustomHeap, 5000);
-    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::CustomHeap, 5000);
-    BENCHMARK_TEMPLATE(benchContainerPush, ContType::CustomHeap, 7000);
-    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::CustomHeap, 7000);
+    BENCHMARK_TEMPLATE(benchPush, Container::CustomHeap, 1000);
+    BENCHMARK_TEMPLATE(benchPushThenPop, Container::CustomHeap, 1000);
+    BENCHMARK_TEMPLATE(benchPush, Container::CustomHeap, 3000);
+    BENCHMARK_TEMPLATE(benchPushThenPop, Container::CustomHeap, 3000);
+    BENCHMARK_TEMPLATE(benchPush, Container::CustomHeap, 5000);
+    BENCHMARK_TEMPLATE(benchPushThenPop, Container::CustomHeap, 5000);
+    BENCHMARK_TEMPLATE(benchPush, Container::CustomHeap, 7000);
+    BENCHMARK_TEMPLATE(benchPushThenPop, Container::CustomHeap, 7000);
     // ----------------------------------------------------------------------------
     // priority_queue
-    BENCHMARK_TEMPLATE(benchContainerPush, ContType::CustomPriQueue, 1000);
-    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::CustomPriQueue, 1000);
-    BENCHMARK_TEMPLATE(benchContainerPush, ContType::CustomPriQueue, 3000);
-    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::CustomPriQueue, 3000);
-    BENCHMARK_TEMPLATE(benchContainerPush, ContType::CustomPriQueue, 5000);
-    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::CustomPriQueue, 5000);
-    BENCHMARK_TEMPLATE(benchContainerPush, ContType::CustomPriQueue, 7000);
-    BENCHMARK_TEMPLATE(benchContainerPushPop, ContType::CustomPriQueue, 7000);
+    BENCHMARK_TEMPLATE(benchPush, Container::CustomPriQueue, 1000);
+    BENCHMARK_TEMPLATE(benchPushThenPop, Container::CustomPriQueue, 1000);
+    BENCHMARK_TEMPLATE(benchPush, Container::CustomPriQueue, 3000);
+    BENCHMARK_TEMPLATE(benchPushThenPop, Container::CustomPriQueue, 3000);
+    BENCHMARK_TEMPLATE(benchPush, Container::CustomPriQueue, 5000);
+    BENCHMARK_TEMPLATE(benchPushThenPop, Container::CustomPriQueue, 5000);
+    BENCHMARK_TEMPLATE(benchPush, Container::CustomPriQueue, 7000);
+    BENCHMARK_TEMPLATE(benchPushThenPop, Container::CustomPriQueue, 7000);
     // ----------------------------------------------------------------------------
     benchmark::Initialize(&argc, argv);
     if (benchmark::ReportUnrecognizedArguments(argc, argv)) {
