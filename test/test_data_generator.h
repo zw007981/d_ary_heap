@@ -37,7 +37,7 @@ struct MyNodeHasher {
 };
 
 auto genNodeFunc = []() {
-    int node_id = std::rand() % 10000;
+    int node_id = std::rand() % 100000;
     int g = 0.1 * (std::rand() % 10000), h = 0.1 * (std::rand() % 10000);
     return MyNode(node_id, g, h);
 };
