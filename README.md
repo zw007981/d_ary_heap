@@ -53,7 +53,7 @@ min_pri_queue.updatePriority("Dijkstra", 1.5);
 
 # benchmark
 
-benchmark用例存储于 `bench` 文件夹中，在用例中比较了自定义数据结构和 `std::priority_queue` 执行 `push` 和 `pop` 两种操作所需的时间，测试结果如下：
+benchmark用例存储于 `bench` 文件夹中，在用例中比较了自定义数据结构和 `std::priority_queue` 执行 `push` 和 `pop` 两种操作所需的时间（GCC 9.4， Release模式），测试结果如下：
 
 ![benchmark](doc/img/benchmark.png)
 
