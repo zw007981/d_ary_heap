@@ -1,6 +1,5 @@
 #pragma once
 
-#include <deque>
 #include <stdexcept>
 #include <unordered_map>
 #include <vector>
@@ -31,7 +30,7 @@ protected:
     // 优先队列中节点的个数。
     size_t size_;
     // 存储于堆中的节点。
-    std::deque<Node> nodes_;
+    std::vector<Node> nodes_;
     // 从元素到它们在堆中位置的映射。
     std::unordered_map<T, NodePos, THash> element_to_pos_;
 

@@ -1,4 +1,3 @@
-#include <deque>
 #include <functional>
 #include <gtest/gtest.h>
 #include <iostream>
@@ -14,8 +13,8 @@ class TestHeapFixture : public ::testing::Test {
     using MaxHeap = DAryHeap<int>;
 
 public:
-    std::deque<std::string> values_in_str_;
-    std::deque<int> values_in_int_;
+    std::vector<std::string> values_in_str_;
+    std::vector<int> values_in_int_;
     const int expected_values_in_str_size_ { 6 };
     const int expected_values_in_int_size_ { 44 };
     MinHeap min_d_heap_;
@@ -24,7 +23,7 @@ public:
 public:
     void SetUp() override
     {
-        values_in_str_ = std::deque<std::string> { "Dijkstra", "Bellman-Ford",
+        values_in_str_ = std::vector<std::string> { "Dijkstra", "Bellman-Ford",
             "A-star", "Hybrid A-star", "RRT", "RRT-star" };
         min_d_heap_ = buildMinDHeap<std::string>(10, values_in_str_);
         max_d_heap_ = createEmptyMaxDHeap<int>(2);
@@ -47,7 +46,7 @@ public:
         std::make_heap(values_in_int_.begin(), values_in_int_.end(), std::less<int> {});
     }
     template <typename T>
-    bool isTwoHeapsEqual(std::deque<T> std_heap, DAryHeap<T> k_heap, std::function<bool(T, T)> cmp_func) const
+    bool isTwoHeapsEqual(std::vector<T> std_heap, DAryHeap<T> k_heap, std::function<bool(T, T)> cmp_func) const
     {
         size_t length = std_heap.size();
         for (size_t i = 0; i < length; i++) {

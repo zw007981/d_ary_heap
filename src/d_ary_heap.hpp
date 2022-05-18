@@ -1,8 +1,8 @@
 #pragma once
 
-#include <deque>
 #include <functional>
 #include <stdexcept>
+#include <vector>
 
 namespace custom_cont {
 // D叉堆(D-ary heap)数据结构。
@@ -21,7 +21,7 @@ protected:
     // 堆中节点的个数。
     size_t size_;
     // 存储于堆中的节点。
-    std::deque<T> nodes_;
+    std::vector<T> nodes_;
 
 public:
     // 使用堆中的节点nodes来构造堆。
@@ -154,14 +154,14 @@ protected:
 template <typename T>
 auto createEmptyMinDHeap(int d = 2)
 {
-    return DAryHeap<T>(d, std::greater<T>(), std::deque<T>());
+    return DAryHeap<T>(d, std::greater<T>(), std::vector<T>());
 }
 
 // 构建空的最大堆。
 template <typename T>
 auto createEmptyMaxDHeap(int d = 2)
 {
-    return DAryHeap<T>(d, std::less<T>(), std::deque<T>());
+    return DAryHeap<T>(d, std::less<T>(), std::vector<T>());
 }
 
 // 使用堆中的节点nodes来构造最小堆。
