@@ -1,4 +1,5 @@
+.vscode/
 build/
 log/
-.vscode/
+scripts/
 .clang-format
