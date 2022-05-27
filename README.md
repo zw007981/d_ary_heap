@@ -55,7 +55,7 @@ min_pri_queue.updatePriority("Dijkstra", 1.5);
 
 benchmark用例存储于 `bench` 文件夹中，在用例中比较了自定义数据结构和 `std::priority_queue` 执行 `push` 和 `pop` 两种操作所需的时间（GCC 9.4， Release模式），测试结果如下：
 
-![benchmark](doc/img/benchmark.png)
+![benchmark](doc/img/different_container0.png)
 
 | Run-time (ms) | Push x 1000 | Pop x 1000 | Push x 3000 | Pop x 3000 | Push x 5000 | Pop x 5000 | Push x 7000 | Pop x 7000 |
 | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- |
@@ -65,6 +65,6 @@ benchmark用例存储于 `bench` 文件夹中，在用例中比较了自定义�
 
 接下来我们以 `std::priority_queue` 执行一些操作所需的时间为基准，对这两种自定义数据结构的运行效率进行评估，它们执行 `push` 和 `pop` 操作的效率如下图所示：
 
-![result](doc/img/result.png)
+![result](doc/img/different_container1.png)
 
 如果想运行这些benchmark用例需要先安装[Benchmark](https://github.com/google/benchmark)，再编译并执行 `bench_d_ary_heap` 。
