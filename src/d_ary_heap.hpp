@@ -136,7 +136,7 @@ protected:
             cur_pos = comp_est;
         }
     }
-    // 在pos_to_fix位置添加一个节点后通过bubble up的方式修复堆，时间复杂度O(k)。
+    // 在pos_to_fix位置添加一个节点后通过bubble up的方式修复堆，时间复杂度O(d)。
     void heapifyUp(NodePos pos_to_fix) noexcept
     {
         while (pos_to_fix > 0) {
