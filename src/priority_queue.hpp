@@ -79,7 +79,7 @@ public:
             throw std::out_of_range("No such element is present!!!");
         } else if (typ_ == PriQueueTyp::MIN_PRI_QUEUE) {
             if (nodes_.at(pos_it->second).second <= pri) {
-                throw std::logic_error("Only decreas key operation can be performed in min priority queue!!!");
+                throw std::logic_error("Only decrease key operation can be performed in min priority queue!!!");
             } else {
                 nodes_[pos_it->second].second = std::move(pri);
                 this->heapifyUp(pos_it->second);
