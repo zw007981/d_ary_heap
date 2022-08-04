@@ -37,7 +37,7 @@ protected:
 
 public:
     // 使用队列中的元素elements和它们的优先级priorities来构造优先队列。
-    explicit PriQueue(int d, PriQueueTyp typ, CmpFunc&& cmp_func,
+    PriQueue(int d, PriQueueTyp typ, CmpFunc&& cmp_func,
         const std::vector<T>& elements, const std::vector<TPri>& priorities)
         : d_(d)
         , typ_(typ)
