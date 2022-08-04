@@ -26,7 +26,7 @@ protected:
 public:
     // 使用堆中的节点nodes来构造堆。
     template <typename Nodes>
-    explicit DAryHeap(int d, CmpFunc&& cmp_func, Nodes&& nodes)
+    DAryHeap(int d, CmpFunc&& cmp_func, Nodes&& nodes)
         : d_(d)
         , cmp_func_(std::move(cmp_func))
         , size_(nodes.size())
